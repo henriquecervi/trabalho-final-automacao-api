@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const routes = require('./routes');
+const graphqlServer = require('./graphql/server');
 
 // Configuration loaded from config/config.js
 
@@ -47,29 +48,63 @@ app.get('/api-docs.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
+// GraphQL Setup - Initialize IMMEDIATELY and SYNCHRONOUSLY
+console.log('🔄 Starting GraphQL server initialization...');
+
+// Create a promise that we'll await to ensure GraphQL is ready before starting server
+const graphqlPromise = (async () => {
+  try {
+    await graphqlServer.createServer();
+    console.log('✅ GraphQL server created successfully');
+    
+    // Apply GraphQL middleware RIGHT NOW
+    console.log('🔄 Applying GraphQL middleware...');
+    graphqlServer.applyMiddleware(app, '/graphql');
+    console.log('✅ GraphQL middleware applied successfully');
+    console.log('📈 GraphQL Server initialized at /graphql');
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize GraphQL server:', error);
+    throw error;
+  }
+})();
+
+// Export function to wait for GraphQL
+app.waitForGraphQL = () => graphqlPromise;
+
 // Root route
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Login REST API',
+    message: 'Login REST & GraphQL API',
     version: '1.0.0',
     documentation: '/api-docs',
     health: '/api/health',
+    graphql: '/graphql',
     endpoints: {
-      auth: {
-        register: 'POST /api/auth/register',
-        login: 'POST /api/auth/login',
-        verifyToken: 'POST /api/auth/verify-token'
+      rest: {
+        auth: {
+          register: 'POST /api/auth/register',
+          login: 'POST /api/auth/login',
+          verifyToken: 'POST /api/auth/verify-token'
+        },
+        users: {
+          profile: 'GET /api/users/profile',
+          updateProfile: 'PUT /api/users/profile',
+          listUsers: 'GET /api/users',
+          getUserById: 'GET /api/users/:id',
+          deleteUser: 'DELETE /api/users/:id'
+        },
+        stats: {
+          getStats: 'GET /api/stats'
+        }
       },
-      users: {
-        profile: 'GET /api/users/profile',
-        updateProfile: 'PUT /api/users/profile',
-        listUsers: 'GET /api/users',
-        getUserById: 'GET /api/users/:id',
-        deleteUser: 'DELETE /api/users/:id'
-      },
-      stats: {
-        getStats: 'GET /api/stats'
+      graphql: {
+        endpoint: 'POST /graphql',
+        playground: process.env.NODE_ENV !== 'production' ? 'GET /graphql' : 'disabled',
+        queries: ['me', 'users', 'user(id)', 'stats', 'health'],
+        mutations: ['register', 'login', 'updateProfile', 'deleteUser']
       }
     }
   });
@@ -89,14 +124,21 @@ app.use((error, req, res, next) => {
   });
 });
 
-// 404 middleware for unknown routes
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    error: 'NOT_FOUND'
+// Wait for GraphQL, then apply 404 middleware AFTER GraphQL is ready
+graphqlPromise.then(() => {
+  console.log('📋 Applying 404 middleware after GraphQL...');
+  
+  // 404 middleware for unknown routes (AFTER GraphQL)
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      message: 'Route not found',
+      error: 'NOT_FOUND'
+    });
   });
-});
+  
+  console.log('✅ 404 middleware applied after GraphQL');
+}).catch(console.error);
 
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
@@ -105,6 +147,8 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
     console.log(`🏠 API Root: http://localhost:${PORT}/`);
     console.log(`🔍 Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`📈 GraphQL Endpoint: http://localhost:${PORT}/graphql`);
+    console.log(`🎮 GraphQL Playground: http://localhost:${PORT}/graphql`);
   });
 }
 

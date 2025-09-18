@@ -11,22 +11,33 @@
     "test:integration": "NODE_ENV=test mocha tests/integration/**/*.test.js --recursive --timeout 5000 --exit --reporter spec",
     "test:external": "NODE_ENV=test mocha tests/external/**/*.test.js --recursive --timeout 5000 --exit --reporter spec",
     "test:watch": "NODE_ENV=test mocha tests/**/*.test.js --recursive --timeout 5000 --watch --reporter spec",
-    "test:coverage": "NODE_ENV=test nyc mocha tests/**/*.test.js --recursive --timeout 5000 --exit --reporter spec"
+    "test:coverage": "NODE_ENV=test nyc mocha tests/**/*.test.js --recursive --timeout 5000 --exit --reporter spec",
+    "test:reports": "npm run test:reports:clean && npm run test:reports:generate && npm run test:reports:merge",
+    "test:reports:clean": "rm -rf reports && mkdir -p reports",
+    "test:reports:generate": "NODE_ENV=test npm run test:coverage && NODE_ENV=test mocha tests/unit/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/unit,reportFilename=unit-tests,html=true,json=true && NODE_ENV=test mocha tests/integration/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/integration,reportFilename=integration-tests,html=true,json=true && NODE_ENV=test mocha tests/external/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/e2e,reportFilename=e2e-tests,html=true,json=true",
+    "test:reports:merge": "cp -r coverage reports/ && echo 'Reports generated in ./reports directory'"
   },
   "keywords": [
     "api",
     "rest",
+    "graphql",
     "login",
     "javascript",
-    "express"
+    "express",
+    "apollo"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@graphql-tools/schema": "^10.0.25",
+    "apollo-server-express": "^3.13.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
+    "graphql": "^16.11.0",
+    "graphql-tag": "^2.12.6",
+    "graphql-tools": "^9.0.20",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",
@@ -34,7 +45,11 @@
   },
   "devDependencies": {
     "chai": "^4.3.8",
+    "graphql-request": "^7.2.0",
     "mocha": "^10.2.0",
+    "mochawesome": "^7.1.4",
+    "mochawesome-merge": "^5.0.0",
+    "mochawesome-report-generator": "^6.3.0",
     "nodemon": "^3.0.1",
     "nyc": "^15.1.0",
     "sinon": "^15.2.0",

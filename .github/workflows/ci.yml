@@ -8,21 +8,17 @@ on:
 
 jobs:
   unit-tests:
-    name: 🔬 Unit Tests → Models, Services, Controllers (Node.js ${{ matrix.node-version }})
+    name: 🔬 Unit Tests → Models, Services, Controllers
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        node-version: [16.x, 18.x, 20.x]
     
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
     
-    - name: Configurar Node.js ${{ matrix.node-version }}
+    - name: Configurar Node.js 18.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '18.x'
         cache: 'npm'
     
     - name: Instalar dependências
@@ -46,22 +42,18 @@ jobs:
         JWT_SECRET: test-jwt-secret-for-github-actions
 
   integration-tests:
-    name: 🔗 Integration Tests → REST + GraphQL APIs (Node.js ${{ matrix.node-version }})
+    name: 🔗 Integration Tests → REST + GraphQL APIs
     runs-on: ubuntu-latest
     needs: unit-tests
-    
-    strategy:
-      matrix:
-        node-version: [16.x, 18.x, 20.x]
     
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
     
-    - name: Configurar Node.js ${{ matrix.node-version }}
+    - name: Configurar Node.js 18.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '18.x'
         cache: 'npm'
     
     - name: Instalar dependências
@@ -85,22 +77,18 @@ jobs:
         JWT_SECRET: test-jwt-secret-for-github-actions
 
   e2e-tests:
-    name: 🎯 E2E Tests → Auth Flows + Performance (Node.js ${{ matrix.node-version }})
+    name: 🎯 E2E Tests → Auth Flows + Performance
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-tests]
-    
-    strategy:
-      matrix:
-        node-version: [16.x, 18.x, 20.x]
     
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
     
-    - name: Configurar Node.js ${{ matrix.node-version }}
+    - name: Configurar Node.js 18.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '18.x'
         cache: 'npm'
     
     - name: Instalar dependências
@@ -113,7 +101,7 @@ jobs:
         JWT_SECRET: test-jwt-secret-for-github-actions
 
   coverage-analysis:
-    name: 📊 Coverage Analysis → All 98 Tests Combined (Node.js 18.x)
+    name: 📊 Coverage Analysis → All 98 Tests Combined
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-tests, e2e-tests]
     
@@ -145,7 +133,7 @@ jobs:
       continue-on-error: true
 
   build-verification:
-    name: 🚀 Build Verification → REST + GraphQL Endpoints (Node.js 18.x)
+    name: 🚀 Build Verification → REST + GraphQL Endpoints
     runs-on: ubuntu-latest
     needs: coverage-analysis
     
@@ -385,7 +373,9 @@ jobs:
 
     - name: 🌐 Create Report Portal → GitHub Pages Landing Page
       run: |
-        cat > reports/index.html << 'EOF'
+        # Generate current date for the report
+        CURRENT_DATE=$(date)
+        cat > reports/index.html << EOF
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -413,7 +403,7 @@ jobs:
                 
                 <div class="stats">
                     <h3>📊 Test Statistics</h3>
-                    <p>Generated on: <strong>$(date)</strong></p>
+                    <p>Generated on: <strong>$CURRENT_DATE</strong></p>
                     <p>Commit: <strong>${{ github.sha }}</strong></p>
                     <p>Branch: <strong>${{ github.ref_name }}</strong></p>
                 </div>

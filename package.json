@@ -57,5 +57,18 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "nyc": {
+    "reporter": ["text", "html", "lcov"],
+    "exclude": [
+      "tests/**",
+      "coverage/**",
+      "node_modules/**"
+    ],
+    "check-coverage": true,
+    "lines": 70,
+    "functions": 70,
+    "branches": 65,
+    "statements": 70
   }
 }

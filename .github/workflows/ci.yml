@@ -7,8 +7,8 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
-    name: 🧪 Tests (Node.js ${{ matrix.node-version }})
+  unit-tests:
+    name: 🔬 Unit Tests → Models, Services, Controllers (Node.js ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     
     strategy:
@@ -39,38 +39,130 @@ jobs:
           echo "Nenhum arquivo para verificação encontrado"
         fi
     
-    - name: 🔬 Unit Tests → UserController, UserService, User Model (40 tests)
+    - name: 🔬 Run Unit Tests → UserController, UserService, User Model (40 tests)
       run: npm run test:unit
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
+
+  integration-tests:
+    name: 🔗 Integration Tests → REST + GraphQL APIs (Node.js ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: unit-tests
     
-    - name: 🔗 Integration Tests → REST APIs (28) + GraphQL APIs (22) = 50 tests
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: Executar linting
+      run: |
+        # Verificar se existem arquivos JS/TS para lint
+        if find src tests -name "*.js" -o -name "*.ts" | grep -q .; then
+          echo "Executando verificações de código..."
+          # Adicionar ESLint se necessário no futuro
+          echo "✓ Verificações de código concluídas"
+        else
+          echo "Nenhum arquivo para verificação encontrado"
+        fi
+    
+    - name: 🔗 Run Integration Tests → REST APIs (28) + GraphQL APIs (22) = 50 tests
       run: npm run test:integration
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
+
+  e2e-tests:
+    name: 🎯 E2E Tests → Auth Flows + Performance (Node.js ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
     
-    - name: 🎯 E2E Tests → Auth Flows + Performance + Load Testing (8 tests)
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: 🎯 Run E2E Tests → Auth Flows + Performance + Load Testing (8 tests)
       run: npm run test:external
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
+
+  coverage-analysis:
+    name: 📊 Coverage Analysis → All 98 Tests Combined (Node.js 18.x)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, e2e-tests]
     
-    - name: 📊 Coverage Analysis → Combines All 98 Tests (Unit + Integration + E2E)
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: 📊 Generate Coverage Report → Combines All 98 Tests (Unit + Integration + E2E)
       run: npm run test:coverage
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
     - name: ☁️ Upload Coverage to Codecov → LCOV Reports for Analysis
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v3
       with:
         file: ./coverage/lcov.info
         fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+      continue-on-error: true
+
+  build-verification:
+    name: 🚀 Build Verification → REST + GraphQL Endpoints (Node.js 18.x)
+    runs-on: ubuntu-latest
+    needs: coverage-analysis
     
-    - name: 🚀 Build Verification → Test REST (/api/health) + GraphQL (/graphql)
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: 🚀 Test Application Build → REST (/api/health) + GraphQL (/graphql)
       run: |
         echo "Testando build da aplicação..."
         npm start &
@@ -97,7 +189,7 @@ jobs:
   security:
     name: 🔒 Security Audit
     runs-on: ubuntu-latest
-    needs: test
+    needs: [unit-tests, integration-tests, e2e-tests]
     
     steps:
     - name: Checkout código
@@ -126,7 +218,7 @@ jobs:
   performance:
     name: ⚡ Performance & Load Testing
     runs-on: ubuntu-latest
-    needs: [test, security]
+    needs: [security, build-verification]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
@@ -183,7 +275,7 @@ jobs:
   reports:
     name: 📊 Generate & Deploy Reports
     runs-on: ubuntu-latest
-    needs: [test, security, performance]
+    needs: [coverage-analysis, security, performance]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     permissions:
@@ -208,16 +300,29 @@ jobs:
     - name: Instalar dependências
       run: npm ci
     
+    - name: 📦 Install mochawesome for HTML reports
+      run: npm install --save-dev mochawesome
+    
     - name: 📋 Generate Test Reports → Coverage + HTML Reports for All 98 Tests
       run: |
         echo "📊 Gerando relatórios de testes..."
-        npm run test:coverage
         
         # Criar diretório para relatórios
         mkdir -p reports
         
-        # Copiar coverage HTML
-        cp -r coverage reports/
+        # Gerar coverage primeiro (necessário para reports)
+        echo "🔄 Generating coverage data..."
+        npm run test:coverage || echo "⚠️ Coverage generation failed, continuing..."
+        
+        # Copiar coverage HTML se existir
+        if [ -d "coverage" ]; then
+          echo "✅ Copying coverage reports..."
+          cp -r coverage reports/
+        else
+          echo "⚠️ Coverage directory not found, skipping..."
+          mkdir -p reports/coverage
+          echo "<h1>Coverage reports not available</h1>" > reports/coverage/index.html
+        fi
         
         # Gerar relatório de testes em HTML
         npm run test -- --reporter mochawesome --reporter-options reportDir=reports/tests,reportFilename=index,html=true,json=false || true
@@ -225,25 +330,59 @@ jobs:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Instalar mochawesome para relatórios HTML
-      run: npm install --save-dev mochawesome
-    
     - name: 📊 Generate HTML Reports → Unit (40) + Integration (50) + E2E (8)
       run: |
         echo "📈 Gerando relatórios HTML..."
         
+        # Criar diretórios para relatórios
+        mkdir -p reports/unit reports/integration reports/e2e
+        
         # Gerar relatório de testes unitários
-        npm run test:unit -- --reporter mochawesome --reporter-options reportDir=reports/unit,reportFilename=index,html=true,json=false || true
+        echo "🔬 Generating Unit test reports..."
+        npm run test:unit -- --reporter mochawesome --reporter-options reportDir=reports/unit,reportFilename=index,html=true,json=false || {
+          echo "⚠️ Unit test report generation failed, creating placeholder..."
+          echo "<h1>Unit Test Report</h1><p>Report generation failed</p>" > reports/unit/index.html
+        }
         
         # Gerar relatório de testes de integração
-        npm run test:integration -- --reporter mochawesome --reporter-options reportDir=reports/integration,reportFilename=index,html=true,json=false || true
+        echo "🔗 Generating Integration test reports..."
+        npm run test:integration -- --reporter mochawesome --reporter-options reportDir=reports/integration,reportFilename=index,html=true,json=false || {
+          echo "⚠️ Integration test report generation failed, creating placeholder..."
+          echo "<h1>Integration Test Report</h1><p>Report generation failed</p>" > reports/integration/index.html
+        }
         
         # Gerar relatório de testes E2E
-        npm run test:external -- --reporter mochawesome --reporter-options reportDir=reports/e2e,reportFilename=index,html=true,json=false || true
+        echo "🎯 Generating E2E test reports..."
+        npm run test:external -- --reporter mochawesome --reporter-options reportDir=reports/e2e,reportFilename=index,html=true,json=false || {
+          echo "⚠️ E2E test report generation failed, creating placeholder..."
+          echo "<h1>E2E Test Report</h1><p>Report generation failed</p>" > reports/e2e/index.html
+        }
+        
+        echo "✅ All report generation attempts completed"
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
+      continue-on-error: true
     
+    - name: 🔍 Verify Report Structure → Ensure All Directories Exist
+      run: |
+        echo "🔍 Verifying report structure..."
+        
+        # Ensure all required directories exist
+        mkdir -p reports/unit reports/integration reports/e2e reports/coverage
+        
+        # Create fallback files if they don't exist
+        [ ! -f "reports/unit/index.html" ] && echo "<h1>Unit Tests</h1><p>No report available</p>" > reports/unit/index.html
+        [ ! -f "reports/integration/index.html" ] && echo "<h1>Integration Tests</h1><p>No report available</p>" > reports/integration/index.html
+        [ ! -f "reports/e2e/index.html" ] && echo "<h1>E2E Tests</h1><p>No report available</p>" > reports/e2e/index.html
+        [ ! -f "reports/coverage/index.html" ] && echo "<h1>Coverage Report</h1><p>No report available</p>" > reports/coverage/index.html
+        
+        # List generated files for debugging
+        echo "📁 Generated report structure:"
+        find reports -type f -name "*.html" | head -10
+        
+        echo "✅ Report structure verified"
+
     - name: 🌐 Create Report Portal → GitHub Pages Landing Page
       run: |
         cat > reports/index.html << 'EOF'

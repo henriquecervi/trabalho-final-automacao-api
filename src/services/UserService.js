@@ -7,7 +7,7 @@ class UserService {
   constructor() {
     this.userRepository = new UserRepository();
     this.jwtSecret = process.env.JWT_SECRET || 'your-jwt-secret-here';
-    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '30m';
   }
 
   // Register new user

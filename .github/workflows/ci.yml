@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: 🧪 Tests (Node.js ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     
     strategy:
@@ -16,10 +17,10 @@ jobs:
     
     steps:
     - name: Checkout código
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Configurar Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -38,37 +39,38 @@ jobs:
           echo "Nenhum arquivo para verificação encontrado"
         fi
     
-    - name: Executar testes unitários
+    - name: 🔬 Unit Tests → UserController, UserService, User Model (40 tests)
       run: npm run test:unit
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Executar testes de integração
+    - name: 🔗 Integration Tests → REST APIs (28) + GraphQL APIs (22) = 50 tests
       run: npm run test:integration
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Executar testes externos (E2E)
+    - name: 🎯 E2E Tests → Auth Flows + Performance + Load Testing (8 tests)
       run: npm run test:external
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Executar todos os testes com coverage
+    - name: 📊 Coverage Analysis → Combines All 98 Tests (Unit + Integration + E2E)
       run: npm run test:coverage
       env:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Upload coverage para Codecov
-      uses: codecov/codecov-action@v3
+    - name: ☁️ Upload Coverage to Codecov → LCOV Reports for Analysis
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage/lcov.info
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
     
-    - name: Verificar build da aplicação
+    - name: 🚀 Build Verification → Test REST (/api/health) + GraphQL (/graphql)
       run: |
         echo "Testando build da aplicação..."
         npm start &
@@ -93,15 +95,16 @@ jobs:
         JWT_SECRET: test-jwt-secret-for-github-actions
 
   security:
+    name: 🔒 Security Audit
     runs-on: ubuntu-latest
     needs: test
     
     steps:
     - name: Checkout código
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Configurar Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18.x'
         cache: 'npm'
@@ -109,28 +112,29 @@ jobs:
     - name: Instalar dependências
       run: npm ci
     
-    - name: Auditoria de segurança
+    - name: 🔍 Security Audit → Check Dependencies (Moderate Level)
       run: |
         echo "Executando auditoria de segurança..."
         npm audit --audit-level moderate
     
-    - name: Verificar vulnerabilidades conhecidas
+    - name: 🚨 Vulnerability Check → Critical & High Risk Dependencies  
       run: |
         echo "Verificando vulnerabilidades conhecidas..."
         # Verificar se há dependências com vulnerabilidades críticas
         npm audit --audit-level high --dry-run
 
   performance:
+    name: ⚡ Performance & Load Testing
     runs-on: ubuntu-latest
     needs: [test, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout código
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Configurar Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18.x'
         cache: 'npm'
@@ -138,7 +142,7 @@ jobs:
     - name: Instalar dependências
       run: npm ci
     
-    - name: Executar testes de performance
+    - name: ⚡ Performance Tests → 50 Users Registration + 20 Concurrent Logins
       run: |
         echo "Executando testes de performance..."
         npm run test:external -- --grep "Performance"
@@ -146,7 +150,7 @@ jobs:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Benchmark da API
+    - name: 📊 API Benchmarks → REST (100 req) + GraphQL (50 req)
       run: |
         echo "Iniciando benchmark da API..."
         npm start &
@@ -177,6 +181,7 @@ jobs:
         JWT_SECRET: test-jwt-secret-for-github-actions
 
   reports:
+    name: 📊 Generate & Deploy Reports
     runs-on: ubuntu-latest
     needs: [test, security, performance]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -192,10 +197,10 @@ jobs:
     
     steps:
     - name: Checkout código
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Configurar Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18.x'
         cache: 'npm'
@@ -203,7 +208,7 @@ jobs:
     - name: Instalar dependências
       run: npm ci
     
-    - name: Gerar relatórios de testes
+    - name: 📋 Generate Test Reports → Coverage + HTML Reports for All 98 Tests
       run: |
         echo "📊 Gerando relatórios de testes..."
         npm run test:coverage
@@ -223,7 +228,7 @@ jobs:
     - name: Instalar mochawesome para relatórios HTML
       run: npm install --save-dev mochawesome
     
-    - name: Gerar relatórios HTML dos testes
+    - name: 📊 Generate HTML Reports → Unit (40) + Integration (50) + E2E (8)
       run: |
         echo "📈 Gerando relatórios HTML..."
         
@@ -239,7 +244,7 @@ jobs:
         NODE_ENV: test
         JWT_SECRET: test-jwt-secret-for-github-actions
     
-    - name: Criar página principal do relatório
+    - name: 🌐 Create Report Portal → GitHub Pages Landing Page
       run: |
         cat > reports/index.html << 'EOF'
         <!DOCTYPE html>
@@ -310,14 +315,14 @@ jobs:
       env:
         NODE_ENV: test
     
-    - name: Configurar Pages
-      uses: actions/configure-pages@v3
+    - name: ⚙️ Configure GitHub Pages → Setup for Deployment
+      uses: actions/configure-pages@v4
     
-    - name: Upload artefatos
-      uses: actions/upload-pages-artifact@v2
+    - name: 📦 Upload Artifacts → Coverage + Test Reports for GitHub Pages
+      uses: actions/upload-pages-artifact@v3
       with:
         path: ./reports
     
-    - name: Deploy para GitHub Pages
+    - name: 🚀 Deploy to GitHub Pages → Live Reports Portal
       id: deployment
-      uses: actions/deploy-pages@v2
+      uses: actions/deploy-pages@v4

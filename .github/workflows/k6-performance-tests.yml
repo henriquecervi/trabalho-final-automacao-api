@@ -1,0 +1,205 @@
+name: K6 Performance Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Permite execução manual
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+
+jobs:
+  k6-performance-test:
+    name: Run K6 Performance Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Start API server
+        run: |
+          npm start &
+          echo "Waiting for API to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3000/api/health > /dev/null; then
+              echo "API is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+      
+      - name: Verify API is running
+        run: |
+          curl -f http://localhost:3000/api/health || exit 1
+          echo "✅ API health check passed"
+      
+      - name: Setup K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Create reports directory
+        run: mkdir -p reports
+      
+      - name: Run K6 Smoke Test
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'smoke')
+        run: npm run test:k6:smoke
+        continue-on-error: true
+        env:
+          BASE_URL: http://localhost:3000
+          ENVIRONMENT: ci
+      
+      - name: Run K6 Load Test
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load')
+        run: npm run test:k6:load
+        continue-on-error: true
+        env:
+          BASE_URL: http://localhost:3000
+          ENVIRONMENT: ci
+      
+      - name: Run K6 Stress Test
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'stress'
+        run: npm run test:k6:stress
+        continue-on-error: true
+        env:
+          BASE_URL: http://localhost:3000
+          ENVIRONMENT: ci
+      
+      - name: Upload K6 HTML Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-performance-report-${{ github.run_number }}
+          path: reports/k6-performance-report.html
+          retention-days: 30
+      
+      - name: Upload K6 JSON Summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-summary-${{ github.run_number }}
+          path: reports/k6-summary.json
+          retention-days: 30
+      
+      - name: Parse K6 Results
+        if: always()
+        id: k6-results
+        run: |
+          if [ -f reports/k6-summary.json ]; then
+            echo "K6 summary found, parsing results..."
+            
+            # Extract key metrics using jq
+            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"]' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            FAIL_RATE=$(jq -r '.metrics.http_req_failed.values.rate * 100' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            CHECK_RATE=$(jq -r '.metrics.checks.values.rate * 100' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            TOTAL_REQS=$(jq -r '.metrics.http_reqs.values.count' reports/k6-summary.json)
+            ITERATIONS=$(jq -r '.metrics.iterations.values.count' reports/k6-summary.json)
+            
+            echo "p95=$P95" >> $GITHUB_OUTPUT
+            echo "fail_rate=$FAIL_RATE" >> $GITHUB_OUTPUT
+            echo "check_rate=$CHECK_RATE" >> $GITHUB_OUTPUT
+            echo "total_reqs=$TOTAL_REQS" >> $GITHUB_OUTPUT
+            echo "iterations=$ITERATIONS" >> $GITHUB_OUTPUT
+            
+            echo "✅ Metrics parsed successfully"
+          else
+            echo "⚠️ K6 summary not found"
+          fi
+      
+      - name: Comment PR with Results
+        if: github.event_name == 'pull_request' && steps.k6-results.outputs.p95 != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const p95 = '${{ steps.k6-results.outputs.p95 }}';
+            const failRate = '${{ steps.k6-results.outputs.fail_rate }}';
+            const checkRate = '${{ steps.k6-results.outputs.check_rate }}';
+            const totalReqs = '${{ steps.k6-results.outputs.total_reqs }}';
+            const iterations = '${{ steps.k6-results.outputs.iterations }}';
+            
+            // Determine status emoji
+            const p95Status = parseFloat(p95) < 500 ? '✅' : '⚠️';
+            const failStatus = parseFloat(failRate) < 5 ? '✅' : '❌';
+            const checkStatus = parseFloat(checkRate) > 95 ? '✅' : '❌';
+            
+            const comment = `## 🚀 K6 Performance Test Results
+            
+            | Metric | Value | Status |
+            |--------|-------|--------|
+            | **P95 Response Time** | ${p95}ms | ${p95Status} |
+            | **Error Rate** | ${failRate}% | ${failStatus} |
+            | **Check Pass Rate** | ${checkRate}% | ${checkStatus} |
+            | **Total Requests** | ${totalReqs} | ℹ️ |
+            | **Iterations** | ${iterations} | ℹ️ |
+            
+            ### 📊 Thresholds
+            - P95 Response Time: < 500ms
+            - Error Rate: < 5%
+            - Check Pass Rate: > 95%
+            
+            ### 📁 Artifacts
+            - HTML Report: Check the "Artifacts" section above
+            - JSON Summary: Available in artifacts
+            
+            ---
+            *Test run: #${{ github.run_number }} | Commit: ${{ github.sha }}*
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Create Job Summary
+        if: always()
+        run: |
+          echo "## 📊 K6 Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f reports/k6-summary.json ]; then
+            P95=$(jq -r '.metrics.http_req_duration.values["p(95)"]' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            FAIL_RATE=$(jq -r '.metrics.http_req_failed.values.rate * 100' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            CHECK_RATE=$(jq -r '.metrics.checks.values.rate * 100' reports/k6-summary.json | awk '{printf "%.2f", $1}')
+            
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| P95 Response Time | ${P95}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| Error Rate | ${FAIL_RATE}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Check Pass Rate | ${CHECK_RATE}% |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Reports uploaded to artifacts**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No K6 summary found" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Stop API server
+        if: always()
+        run: |
+          pkill -f "node src/app.js" || true
+

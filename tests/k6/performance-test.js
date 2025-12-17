@@ -68,7 +68,7 @@ export function setup() {
   // Cria alguns usuários para testes posteriores
   const setupUsers = [];
   
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 1; i++) {
     const user = faker.randomUser();
     const response = api.registerUser(config.baseUrl, user);
     

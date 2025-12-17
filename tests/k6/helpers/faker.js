@@ -5,23 +5,20 @@
  * Geração de dados aleatórios usando a extensão K6 Faker (k6/x/faker)
  */
 
-import { Faker } from "k6/x/faker";
-
-// Cria instância do Faker
-const faker = new Faker();
+import { faker } from '@faker-js/faker';
 
 /**
  * Gera email aleatório usando K6 Faker
  */
 export function randomEmail() {
-  return faker.person.email();
+  return faker.internet.email();
 }
 
 /**
  * Gera username aleatório usando K6 Faker
  */
 export function randomUsername() {
-  return faker.person.namePrefixp();
+  return faker.person.lastName();
 }
 
 /**
@@ -87,9 +84,9 @@ export function generateTestUsers(count = 10) {
   const users = [];
   for (let i = 0; i < count; i++) {
     users.push({
-      username: faker.internet.username(),
-      email: faker.person.email(),
-      password: faker.internet.password(),
+      username: randomUsername(),
+      email: randomEmail(),
+      password: randomPassword()
     });
   }
   return users;

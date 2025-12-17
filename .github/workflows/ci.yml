@@ -432,6 +432,12 @@ jobs:
                         <p>End-to-end workflow and performance testing</p>
                         <a href="e2e/index.html">View E2E Tests</a>
                     </div>
+                    
+                    <div class="report-card">
+                      <h3>⚡ Performance (k6)</h3>
+                      <p>k6 performance test HTML report and JSON summary.</p>
+                      <a href="k6-performance-report.html">View k6 Report</a>
+                    </div>
                 </div>
                 
                 <div class="footer">

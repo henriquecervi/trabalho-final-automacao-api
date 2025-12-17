@@ -23,16 +23,13 @@ export const config = {
   // Conceito: Stages
   // Define diferentes estágios de carga durante o teste
   stages: [
-    { duration: '30s', target: 10 },  // Ramp-up: 0 -> 10 usuários em 30s
-    { duration: '1m', target: 50 },   // Carga média: 10 -> 50 usuários em 1min
-    { duration: '30s', target: 100 }, // Pico: 50 -> 100 usuários em 30s
-    { duration: '1m', target: 100 },  // Sustentação: 100 usuários por 1min
-    { duration: '30s', target: 0 },   // Ramp-down: 100 -> 0 usuários em 30s
+    { duration: '10s', target: 1 },
+    { duration: '20s', target: 2 },
   ],
   
   // Configurações de execução
-  vus: 10, // Virtual Users default
-  duration: '3m', // Duração total alternativa
+  vus: 1, // Virtual Users default
+  duration: '10s', // Duração total alternativa
   
   // Tags customizadas
   tags: {

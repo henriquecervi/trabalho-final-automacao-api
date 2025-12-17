@@ -5,9 +5,9 @@ permissions:
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ master, main, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ master, main ]
   workflow_dispatch: # Permite execução manual
     inputs:
       test_type:
@@ -76,7 +76,7 @@ jobs:
           ENVIRONMENT: ci
       
       - name: Run K6 Load Test
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load')
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load')
         run: npm run test:k6:load
         continue-on-error: true
         env:
@@ -202,7 +202,7 @@ jobs:
           fi
       
       - name: Prepare Reports for GitHub Pages
-        if: always() && github.ref == 'refs/heads/main'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
           # Cria subpasta para não interferir com Pages existente
           mkdir -p gh-pages/k6-reports
@@ -389,7 +389,7 @@ jobs:
           echo "✅ GitHub Pages content prepared"
       
       - name: Deploy to GitHub Pages
-        if: always() && github.ref == 'refs/heads/main'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

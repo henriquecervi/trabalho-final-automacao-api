@@ -1,5 +1,8 @@
 name: K6 Performance Tests
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main, master, develop ]
@@ -197,6 +200,204 @@ jobs:
           else
             echo "⚠️ No K6 summary found" >> $GITHUB_STEP_SUMMARY
           fi
+      
+      - name: Prepare Reports for GitHub Pages
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          # Cria subpasta para não interferir com Pages existente
+          mkdir -p gh-pages/k6-reports
+          
+          # Copy current report para subpasta
+          if [ -f reports/k6-performance-report.html ]; then
+            cp reports/k6-performance-report.html gh-pages/k6-reports/latest.html
+            cp reports/k6-performance-report.html gh-pages/k6-reports/report-${{ github.run_number }}.html
+            cp reports/k6-summary.json gh-pages/k6-reports/summary-${{ github.run_number }}.json
+          fi
+          
+          # Create index page dentro da subpasta
+          cat > gh-pages/k6-reports/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>K6 Performance Test Reports</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 40px 20px;
+              }
+              .container {
+                max-width: 1200px;
+                margin: 0 auto;
+              }
+              .header {
+                text-align: center;
+                color: white;
+                margin-bottom: 50px;
+              }
+              .header h1 {
+                font-size: 3em;
+                margin-bottom: 10px;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+              }
+              .header p {
+                font-size: 1.2em;
+                opacity: 0.9;
+              }
+              .card {
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                margin-bottom: 30px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+              }
+              .latest-report {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+              }
+              .latest-report h2 { margin-bottom: 20px; }
+              .btn {
+                display: inline-block;
+                padding: 15px 30px;
+                background: white;
+                color: #667eea;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                transition: transform 0.2s, box-shadow 0.2s;
+              }
+              .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+              }
+              .btn-secondary {
+                background: rgba(255,255,255,0.2);
+                color: white;
+                margin-left: 10px;
+              }
+              .reports-list h2 {
+                color: #333;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #667eea;
+              }
+              .report-item {
+                padding: 15px;
+                border-left: 4px solid #667eea;
+                background: #f8f9fa;
+                margin-bottom: 15px;
+                border-radius: 4px;
+              }
+              .report-item h3 {
+                color: #667eea;
+                margin-bottom: 5px;
+              }
+              .report-item p {
+                color: #666;
+                font-size: 0.9em;
+              }
+              .report-item a {
+                color: #764ba2;
+                text-decoration: none;
+                font-weight: 500;
+              }
+              .report-item a:hover {
+                text-decoration: underline;
+              }
+              .info {
+                background: #e3f2fd;
+                padding: 20px;
+                border-radius: 8px;
+                border-left: 4px solid #2196f3;
+                margin-top: 20px;
+              }
+              .info h3 {
+                color: #1976d2;
+                margin-bottom: 10px;
+              }
+              .info p {
+                color: #555;
+                line-height: 1.6;
+              }
+              .badge {
+                display: inline-block;
+                padding: 5px 12px;
+                background: #4caf50;
+                color: white;
+                border-radius: 12px;
+                font-size: 0.85em;
+                margin-left: 10px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🚀 K6 Performance Reports</h1>
+                <p>Automated Performance Testing Results</p>
+              </div>
+              
+              <div class="card latest-report">
+                <h2>📊 Latest Report <span class="badge">Run #${{ github.run_number }}</span></h2>
+                <p style="margin-bottom: 20px; opacity: 0.9;">
+                  Latest performance test results from the main branch
+                </p>
+                <a href="latest.html" class="btn" target="_blank">
+                  📈 View Latest Report
+                </a>
+                <a href="summary-${{ github.run_number }}.json" class="btn btn-secondary" target="_blank">
+                  📄 JSON Summary
+                </a>
+              </div>
+              
+              <div class="card reports-list">
+                <h2>📚 Report History</h2>
+                <div class="report-item">
+                  <h3>Report #${{ github.run_number }}</h3>
+                  <p>Commit: ${{ github.sha }} | Date: $(date +'%Y-%m-%d %H:%M:%S')</p>
+                  <a href="report-${{ github.run_number }}.html" target="_blank">View Report</a> | 
+                  <a href="summary-${{ github.run_number }}.json" target="_blank">JSON</a>
+                </div>
+              </div>
+              
+              <div class="card info">
+                <h3>ℹ️ How to Use</h3>
+                <p>
+                  <strong>Latest Report:</strong> Always shows the most recent test results<br>
+                  <strong>Report History:</strong> Access previous test results by run number<br>
+                  <strong>JSON Summary:</strong> Raw data for custom analysis and integrations
+                </p>
+              </div>
+              
+              <div class="card info">
+                <h3>🎯 About K6 Performance Tests</h3>
+                <p>
+                  These tests run automatically on every push to main branch and can be triggered manually.
+                  They validate API performance, response times, error rates, and overall system behavior under load.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>
+          EOF
+          
+          echo "✅ GitHub Pages content prepared"
+      
+      - name: Deploy to GitHub Pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'docs: update K6 performance report #${{ github.run_number }}'
       
       - name: Stop API server
         if: always()

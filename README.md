@@ -207,6 +207,9 @@ The project includes automated K6 tests in GitHub Actions:
 - Manual trigger with test type selection
 - Automatic report upload as artifacts
 - PR comments with performance metrics
+- Automatic deployment to GitHub Pages (`/k6-reports/`)
+
+**View Reports:** After workflow runs, reports are at `https://henriquecervi.github.io/trabalho-final-automacao-api/`
 
 ## 🔧 API Endpoints
 

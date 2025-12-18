@@ -4,11 +4,7 @@ permissions:
   contents: write
 
 on:
-  push:
-    branches: [ master, main, develop ]
-  pull_request:
-    branches: [ master, main ]
-  workflow_dispatch: # Permite execução manual
+  workflow_dispatch: # Manual trigger only to avoid duplicate automatic k6 runs
     inputs:
       test_type:
         description: 'Type of test to run'

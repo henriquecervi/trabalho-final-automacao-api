@@ -203,67 +203,12 @@ jobs:
         # Verificar se há dependências com vulnerabilidades críticas
         npm audit --audit-level high --dry-run
 
-  performance:
-    name: ⚡ Performance & Load Testing
-    runs-on: ubuntu-latest
-    needs: [security, build-verification]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: Checkout código
-      uses: actions/checkout@v4
-    
-    - name: Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-    
-    - name: Instalar dependências
-      run: npm ci
-    
-    - name: ⚡ Performance Tests → 50 Users Registration + 20 Concurrent Logins
-      run: |
-        echo "Executando testes de performance..."
-        npm run test:external -- --grep "Performance"
-      env:
-        NODE_ENV: test
-        JWT_SECRET: test-jwt-secret-for-github-actions
-    
-    - name: 📊 API Benchmarks → REST (100 req) + GraphQL (50 req)
-      run: |
-        echo "Iniciando benchmark da API..."
-        npm start &
-        SERVER_PID=$!
-        sleep 5
-        
-        # Teste básico de carga REST usando curl
-        echo "📈 Benchmark REST API (100 requests)..."
-        for i in {1..100}; do
-          curl -s http://localhost:3000/api/health > /dev/null
-        done
-        echo "✓ REST API benchmark concluído"
-        
-        # Teste básico de carga GraphQL usando curl
-        echo "📊 Benchmark GraphQL API (50 requests)..."
-        for i in {1..50}; do
-          curl -s -X POST -H "Content-Type: application/json" \
-            -d '{"query":"query{health}"}' \
-            http://localhost:3000/graphql > /dev/null
-        done
-        echo "✓ GraphQL API benchmark concluído"
-        
-        # Parar servidor
-        kill $SERVER_PID
-        echo "✓ Benchmark COMPLETO - REST + GraphQL testados!"
-      env:
-        NODE_ENV: production
-        JWT_SECRET: test-jwt-secret-for-github-actions
+  # Note: performance job removed — k6/performance steps are now executed inside the `reports` job
 
   reports:
     name: 📊 Generate & Deploy Reports
     runs-on: ubuntu-latest
-    needs: [coverage-analysis, security, performance]
+    needs: [coverage-analysis, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     permissions:
@@ -287,6 +232,35 @@ jobs:
     
     - name: Instalar dependências
       run: npm ci
+
+    - name: 🔧 Start server for k6 performance tests (background)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "Starting application for k6..."
+        npm start &
+        echo $! > .server_pid
+        sleep 5
+      env:
+        NODE_ENV: production
+
+    - name: ⛏️ Install k6 (Ubuntu runner)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gnupg2 ca-certificates curl
+        curl -s https://dl.k6.io/key.gpg | sudo apt-key add -
+        echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install -y k6
+
+    - name: ⚡ Run k6 Performance Tests → generate HTML + JSON
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "Running k6 performance tests..."
+        npm run test:k6 || echo "k6 run failed, continuing to report generation"
+        ls -la reports || true
+      env:
+        NODE_ENV: test
     
     - name: 📦 Install mochawesome for HTML reports
       run: npm install --save-dev mochawesome

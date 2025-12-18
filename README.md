@@ -61,7 +61,8 @@ src/
 tests/
 ├── unit/             # Unit tests
 ├── integration/      # Integration tests
-└── external/         # E2E tests
+├── external/         # E2E tests
+└── k6/              # K6 Performance tests
 ```
 
 ## 🚦 Installation and Execution
@@ -143,6 +144,72 @@ The project includes:
 - **Integration Tests**: REST routes with Supertest
 - **E2E Tests**: Complete authentication flows
 - **Performance Tests**: Response time verification
+- **K6 Performance Tests**: Load, stress and spike testing with K6
+
+### 🚀 K6 Performance Tests
+
+Complete performance testing suite using K6 with advanced concepts:
+
+#### Features Implemented:
+- ✅ **Thresholds**: Performance limits and SLA validation
+- ✅ **Checks**: Response validation and quality gates
+- ✅ **Helpers**: Reusable functions for API calls
+- ✅ **Trends**: Custom metrics tracking
+- ✅ **Faker**: Random data generation
+- ✅ **Environment Variables**: Configurable test parameters
+- ✅ **Stages**: Load progression scenarios
+- ✅ **Response Reuse**: Token extraction and reuse
+- ✅ **Authentication**: JWT token flow testing
+- ✅ **Data-Driven**: External data file usage
+- ✅ **Groups**: Organized test structure
+
+#### Running K6 Tests:
+
+**Prerequisites:**
+```bash
+# Install K6 (see tests/k6/INSTALLATION.md for details)
+brew install k6  # macOS
+choco install k6 # Windows
+```
+
+**Execute Tests:**
+```bash
+# Full performance test
+npm run test:k6
+
+# Smoke test (quick validation)
+npm run test:k6:smoke
+
+# Load test (default stages)
+npm run test:k6:load
+
+# Stress test (high load)
+npm run test:k6:stress
+
+# Spike test (sudden load)
+npm run test:k6:spike
+```
+
+**View Reports:**
+```bash
+# HTML report generated at:
+open reports/k6-performance-report.html
+```
+
+**Documentation:**
+- Full documentation: `tests/k6/README.md`
+- GitHub Actions: `.github/workflows/k6-performance-tests.yml`
+
+**CI/CD Integration:**
+The project includes automated K6 tests in GitHub Actions:
+- Runs on every push to main/master/develop
+- Runs on pull requests (smoke test)
+- Manual trigger with test type selection
+- Automatic report upload as artifacts
+- PR comments with performance metrics
+- Automatic deployment to GitHub Pages (`/k6-reports/`)
+
+**View Reports:** After workflow runs, reports are at `https://henriquecervi.github.io/trabalho-final-automacao-api/`
 
 ## 🔧 API Endpoints
 

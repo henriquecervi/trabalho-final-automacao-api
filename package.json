@@ -15,7 +15,15 @@
     "test:reports": "npm run test:reports:clean && npm run test:reports:generate && npm run test:reports:merge",
     "test:reports:clean": "rm -rf reports && mkdir -p reports",
     "test:reports:generate": "NODE_ENV=test npm run test:coverage && NODE_ENV=test mocha tests/unit/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/unit,reportFilename=unit-tests,html=true,json=true && NODE_ENV=test mocha tests/integration/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/integration,reportFilename=integration-tests,html=true,json=true && NODE_ENV=test mocha tests/external/**/*.test.js --recursive --timeout 5000 --exit --reporter mochawesome --reporter-options reportDir=reports/e2e,reportFilename=e2e-tests,html=true,json=true",
-    "test:reports:merge": "cp -r coverage reports/ && echo 'Reports generated in ./reports directory'"
+    "test:reports:merge": "cp -r coverage reports/ && echo 'Reports generated in ./reports directory'",
+    "test:k6": "npm run test:k6:prepare && npm run build:k6 && npm run test:k6:run",
+    "test:k6:prepare": "node -e \"require('fs').mkdirSync('reports', { recursive: true }); require('fs').mkdirSync('build/k6', { recursive: true });\"",
+    "build:k6": "esbuild tests/k6/performance-test.js --bundle --platform=browser --external:k6 --external:k6/* --outfile=build/k6/performance-test.bundle.js --format=esm",
+    "test:k6:run": "k6 run build/k6/performance-test.bundle.js",
+    "test:k6:smoke": "k6 run --vus 1 --duration 30s tests/k6/performance-test.js",
+    "test:k6:load": "k6 run tests/k6/performance-test.js",
+    "test:k6:stress": "k6 run --vus 200 --duration 5m tests/k6/performance-test.js",
+    "test:k6:spike": "k6 run --vus 500 --duration 2m tests/k6/performance-test.js"
   },
   "keywords": [
     "api",
@@ -44,7 +52,9 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "chai": "^4.3.8",
+    "esbuild": "^0.27.2",
     "graphql-request": "^7.2.0",
     "mocha": "^10.2.0",
     "mochawesome": "^7.1.4",
@@ -53,13 +63,19 @@
     "nodemon": "^3.0.1",
     "nyc": "^15.1.0",
     "sinon": "^15.2.0",
-    "supertest": "^6.3.3"
+    "supertest": "^6.3.3",
+    "webpack": "^5.104.0",
+    "webpack-cli": "^6.0.1"
   },
   "engines": {
     "node": ">=16.0.0"
   },
   "nyc": {
-    "reporter": ["text", "html", "lcov"],
+    "reporter": [
+      "text",
+      "html",
+      "lcov"
+    ],
     "exclude": [
       "tests/**",
       "coverage/**",

@@ -326,7 +326,9 @@ This project is under the MIT license. See the `LICENSE` file for more details.
 
 ## 👨‍💻 Developed by
 
-[Your Name] - [your.email@example.com]
+Henrique Cervi Cutri - https://github.com/henriquecervi
+
+**Project reports (GitHub Pages):** https://henriquecervi.github.io/trabalho-final-automacao-api/
 
 ---
 
